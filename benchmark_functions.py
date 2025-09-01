@@ -100,7 +100,7 @@ def griewangk(x):
     return sum_term - prod_term + 1
 
 # Dictionary to easily access functions by name and their typical bounds
-# These bounds are crucial for initializing the population within a reasonable search space.
+# These bounds are important for initializing the population within a reasonable search space.
 FUNCTIONS = {
     "Ackley": {"func": ackley, "bounds": (-32.768, 32.768)},
     "Rosenbrock": {"func": rosenbrock, "bounds": (-5, 10)},

@@ -3,8 +3,9 @@
 # to the Genetic Algorithm engine and the benchmark functions.
 
 import tkinter as tk
-from tkinter import ttk, font
+from tkinter import ttk, messagebox
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Import the logic and functions from the other files
 from benchmark_functions import FUNCTIONS
@@ -36,6 +37,7 @@ class App(tk.Tk):
         self.ga_instance = None
         self.running = False
         self.generation_count = 0
+        self.fitness_history = [] # To store fitness values for plotting
 
         # --- GUI Creation ---
         self._create_widgets()
@@ -54,7 +56,6 @@ class App(tk.Tk):
         # Function Selection
         ttk.Label(control_frame, text="Benchmark Function:").pack(anchor="w", pady=(10, 2))
         self.function_var = tk.StringVar(value=list(FUNCTIONS.keys())[0])
-        # Change combobox background color
         function_menu = ttk.Combobox(control_frame, textvariable=self.function_var, values=list(FUNCTIONS.keys()), state="readonly")
         function_menu.pack(fill=tk.X)
 
@@ -64,7 +65,7 @@ class App(tk.Tk):
         dimension_menu = ttk.Combobox(control_frame, textvariable=self.dimension_var, values=["5", "10"], state="readonly")
         dimension_menu.pack(fill=tk.X)
         
-        # Other GA Parameters (optional for user to change)
+        # Other GA Parameters
         ttk.Label(control_frame, text="Population Size:").pack(anchor="w", pady=(10, 2))
         self.pop_size_var = tk.StringVar(value="100")
         ttk.Entry(control_frame, textvariable=self.pop_size_var).pack(fill=tk.X)
@@ -79,23 +80,24 @@ class App(tk.Tk):
 
         self.stop_button = ttk.Button(control_frame, text="Stop", command=self.stop_ga, state=tk.DISABLED)
         self.stop_button.pack(fill=tk.X, ipady=5)
+        
+        self.plot_button = ttk.Button(control_frame, text="Plot Convergence", command=self.plot_convergence, state=tk.DISABLED)
+        self.plot_button.pack(pady=(10,0), fill=tk.X, ipady=5)
+
 
         # --- Results Display (Right Side) ---
         results_frame = ttk.Frame(main_frame)
         results_frame.grid(row=0, column=1, sticky="nsew")
-        main_frame.grid_columnconfigure(1, weight=1) # Make results frame expandable
+        main_frame.grid_columnconfigure(1, weight=1)
 
         ttk.Label(results_frame, text="Results", font=("Arial", 16, "bold")).pack(pady=(0, 10), anchor="w")
 
-        # Generation Count
         self.gen_label = ttk.Label(results_frame, text="Generation: 0", font=("Arial", 12))
         self.gen_label.pack(anchor="w")
 
-        # Best Fitness
         self.fitness_label = ttk.Label(results_frame, text="Best Fitness: N/A", font=("Arial", 12))
         self.fitness_label.pack(anchor="w", pady=5)
 
-        # Best Solution
         ttk.Label(results_frame, text="Best Solution Vector:", font=("Arial", 12, "bold")).pack(anchor="w", pady=(15, 5))
         self.solution_text = tk.Text(results_frame, height=15, width=50, background="#1E1E1E", foreground="#D4D4D4", relief="flat", font=("Courier", 11))
         self.solution_text.pack(fill=tk.BOTH, expand=True)
@@ -106,12 +108,10 @@ class App(tk.Tk):
     def start_ga(self):
         """Initializes and starts the Genetic Algorithm run."""
         try:
-            # Get parameters from GUI
             func_name = self.function_var.get()
             dimension = int(self.dimension_var.get())
             pop_size = int(self.pop_size_var.get())
             
-            # Initialize GA instance
             self.ga_instance = GeneticAlgorithm(
                 objective_func=FUNCTIONS[func_name]["func"],
                 bounds=FUNCTIONS[func_name]["bounds"],
@@ -122,57 +122,83 @@ class App(tk.Tk):
             # Reset state and update UI
             self.running = True
             self.generation_count = 0
+            self.fitness_history.clear() # Clear history for the plot
             self.start_button.config(state=tk.DISABLED)
             self.stop_button.config(state=tk.NORMAL)
+            self.plot_button.config(state=tk.DISABLED)
             
             # Start the GA loop
             self.run_ga_loop()
 
-        except ValueError as e:
-            # print actual error here
-            print("Invalid input for population size or max generations.", e)
-            # Simple error handling for non-integer inputs
-            self.solution_text.config(state=tk.NORMAL)
-            self.solution_text.delete("1.0", tk.END)
-            self.solution_text.insert(tk.END, "Error: Population size and max generations must be integers.")
-            self.solution_text.config(state=tk.DISABLED)
-
+        except ValueError:
+            messagebox.showerror("Input Error", "Population size and max generations must be valid integers.")
 
     def stop_ga(self):
         """Stops the Genetic Algorithm run."""
         self.running = False
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
+        self.plot_button.config(state=tk.NORMAL) # Enable plot button when stopped
 
 
     def run_ga_loop(self):
         """The main loop that runs generations and updates the GUI."""
         if self.running and self.generation_count < int(self.max_gen_var.get()):
-            # Run one generation
             best_solution, best_fitness = self.ga_instance.run_generation()
+            self.fitness_history.append(best_fitness) # Add data for plot
             
-            # Update GUI with results
+            # Update GUI
             self.generation_count += 1
             self.gen_label.config(text=f"Generation: {self.generation_count}")
             self.fitness_label.config(text=f"Best Fitness: {best_fitness:.6f}")
             
             self.solution_text.config(state=tk.NORMAL)
             self.solution_text.delete("1.0", tk.END)
-            # Format the solution vector for readability
             solution_str = np.array2string(best_solution, formatter={'float_kind':lambda x: "%.4f" % x})
             self.solution_text.insert(tk.END, solution_str)
             self.solution_text.config(state=tk.DISABLED)
             
-            # Schedule the next generation to run after 1ms
+            # Schedule the next run
             self.after(1, self.run_ga_loop)
         else:
-            print("GA loop ended.")
-            # Stop if max generations reached or user stopped
-            if self.running:
+            if self.running: # If it finished without being stopped
                 self.stop_ga()
+
+    def plot_convergence(self):
+        """Plots the fitness history of the last GA run."""
+        if not self.fitness_history:
+            messagebox.showinfo("No Data", "There is no fitness data to plot. Please run the GA first.")
+            return
+
+        plt.style.use('seaborn-v0_8-darkgrid')
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        ax.plot(self.fitness_history, color='cyan', linewidth=2)
+        
+        # Style the plot to match the dark theme
+        fig.patch.set_facecolor('#2E2E2E')
+        ax.set_facecolor('#2E2E2E')
+        ax.tick_params(axis='x', colors='white')
+        ax.tick_params(axis='y', colors='white')
+        ax.spines['bottom'].set_color('white')
+        ax.spines['left'].set_color('white')
+        ax.spines['top'].set_color('#2E2E2E')
+        ax.spines['right'].set_color('#2E2E2E')
+        
+        # Set labels and title
+        ax.set_xlabel("Generation", color='white', fontsize=12)
+        ax.set_ylabel("Best Fitness", color='white', fontsize=12)
+        
+        func_name = self.function_var.get()
+        dim = self.dimension_var.get()
+        title = f"GA Convergence for {func_name} Function ({dim}D)"
+        ax.set_title(title, color='white', fontsize=16, weight='bold')
+
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
-    print("Name is main")
     app = App()
     app.mainloop()
+

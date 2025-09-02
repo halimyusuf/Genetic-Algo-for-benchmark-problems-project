@@ -9,7 +9,7 @@ class GeneticAlgorithm:
     """
     A class to encapsulate the Genetic Algorithm logic.
     """
-    def __init__(self, objective_func, bounds, dimension, pop_size=100, crossover_rate=0.8, mutation_rate=0.1):
+    def __init__(self, objective_func, bounds, dimension, pop_size=1000, crossover_rate=0.8, mutation_rate=0.2):
         """
         Initializes the Genetic Algorithm optimizer.
         Args:

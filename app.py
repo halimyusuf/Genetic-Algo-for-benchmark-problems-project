@@ -67,7 +67,7 @@ class App(tk.Tk):
         
         # Other GA Parameters
         ttk.Label(control_frame, text="Population Size:").pack(anchor="w", pady=(10, 2))
-        self.pop_size_var = tk.StringVar(value="100")
+        self.pop_size_var = tk.StringVar(value="1000")
         ttk.Entry(control_frame, textvariable=self.pop_size_var).pack(fill=tk.X)
 
         ttk.Label(control_frame, text="Max Generations:").pack(anchor="w", pady=(10, 2))
